@@ -1,0 +1,39 @@
+= Test Automation
+
+== 1. Comprehensive Test automation strategy
+
+=== What is your approach to implement test automation for validating E2E testing?
+
+When we look at the architecture of eBooking system we can clearly see that it's in the middle of data flow. It receives input from Master Data, Routes, and Pricing. After receiving information from there it's most likely doing some transformations then keep booking in its database and passes result further to Order Fulfilment and indirectly to Invoicing. This means main value of E2E testing here is to validate complete flow works correctly across all those systems not only inside eBooking itself.
+
+To be honest I don't think that E2E automation should cover large number of scenarios. E2E automation should be focused validation layer for most critical business journeys, not main way to cover testing of the system. I would start with small number of high-value scenarios to cover flows such as: successful booking creation, persistence of booking in the database, correctness of status updates and handoff to downstream systems. I would also include a few negative scenarios for example invalid upstream input or downstream failure that affects booking completion. Purpose of this is to prove that most important business journeys work from start to finish.
+
+We have to be careful not to overload E2E with too much coverage. In a system with so many integrations between sub-systems large E2E suite will become slow, fragile and expensive to maintain. E2E should be kept stable and business focused. We should use controlled test data. By this I mean do not randomize this data too much as it may cause that we got to the point where it'll be not possible to find matching set of data needed in eBooking in sub-systems that we use in the flow. We also have to ensure that environments are predictable and only assert the key outcomes needed to confirm that end to end flow actually worked. E2E should be top confidence layer for critical flows not a place where every rule and every edge case should be tested.
+
+=== What are the steps you take to maximize test coverage? For example, shift-left approach.
+
+To maximize test coverage it would be good to move as much validation as possible to earlier stages of the lifecycle. We shouldn't depend that much on E2E and manual regression at the end.
+
+In my opinion it would be good to use layered approach where most of the testing coverage is coming flower earlier phases and at lower levels of testing.
+
+First step would be to create more tests on unit test level. Business logic should be tested there. We can create cases for: validation of booking requests, pricing rules, statuses transitions, error handling, mapping and transformation logic. This is the fastest and cheapest place to catch defects. It's also solution for one of the problems described in the case.
+
+Second step would be to build strong API automation. That should be the main regression layer. It would be good to automate: booking creation, booking updates, cancellations, retrieval of booking details, validation of incorrect inputs. Testing as much things on this level gives us much better speed and stability than full E2E testing while still covering real business cases.
+
+Third step would be creation of strong integration suite. In the diagram we can clearly see that there are upstream and downstream dependencies in the system. We should create integration tests for: data received from Master data, Routes and Pricing, handoff from eBooking to Order Fulfilment and also for dependency between Order Fulfilment and Invoicing. That's also important part as we can have a lot of issues not because of bug inside one of these services but becuse of misalignments between sub-systems as: payload changes in one of them, different interpretation of fields, schema changes. It would be better to find such problems at this stage not during full E2E testing.
+
+The document also mentions shift-left. If we want to use shift-left to maximize test coverage then I would move testing activities earlier into delivery lifecycle. What can we do in this approach is to: involve QAs early in requirements discussions, identify critical business flows before implementation, reviewing dependencies early, creating test plan with clear split of tests between unit, API, integration and E2E level. That might be beneficial because risks are not only functional in system like this. These risks are also integration related. If upstream systems provide incorrect data or if downstream systems do not proces booking correctly defect may appear very late unless those risks were identified earlier.
+
+== 2. Backend Test Automation Assignment
+
+My solution is validating the end-to-end flow of a booking message- first publishing it to Kafka and then verifying that it can be found in MongoDB.
+
+In created scenario booking request is dynamically created during runtime instead of relying on static input data. Unique booking number is generated in each execution, that ensures isolation and prevents from receiving false positives caused by previously existing records in the database.
+
+The booking object is serialized into JSON and published to the Kafka topic using producer helper. Booking number is also used as the message key, which improves traceability and reflects a realistic event-driven setup.
+
+As Kafka processing is asynchronous, we have to wait for request to be saved in MongoDB. It's not possible to validate database just after publishing the message. After confirming that request is already stored in MongoDB we can perform assertion. This approach is how Kafka-based system are working in real life.
+
+When document is available test verifies its presence and correctnes by comparing request that was send with the request that is stored.
+
+Structure of the files and code created are attached in PNG files as *.doc files are not a best place to read Java code. I also attached compressed project that I created. It’s not possible to run created test. We would also need running Spring Boot microservice with Kafka and Mongo configuration, so the message can actually be consumed and persisted.
